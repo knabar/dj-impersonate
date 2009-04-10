@@ -34,10 +34,10 @@ def get_real_user(request):
 def can_impersonate(realusername, username):
     return Impersonation.objects.filter(
         Q(users__username=username) | Q(groups__user__username=username),
-        user__username=realusername).count() > 0
+        group__user__username=realusername).count() > 0
    
     
 def get_available_users(realusername):
     return User.objects.filter(
-        Q(impersonated_set__user__username=realusername) | Q(groups__impersonated_set__user__username=realusername)
+        Q(impersonated_set__group__user__username=realusername) | Q(groups__impersonated_set__group__user__username=realusername)
         ).distinct().order_by('username').values_list('username', flat=True)
