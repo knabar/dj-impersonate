@@ -3,9 +3,14 @@ from django.contrib.auth.models import User
 from models import Impersonation
 from django.db.models import Q
 from django.core.exceptions import PermissionDenied
+import django.dispatch
 
 
 IMPERSONATION_REAL_USER_SESSION_KEY = 'IMPERSONATION_REAL_USER'
+
+
+
+user_impersonated = django.dispatch.Signal(providing_args=["username"])
 
 
 def impersonate(request, username):    
@@ -16,6 +21,7 @@ def impersonate(request, username):
     user.backend = "django.contrib.auth.backends.ModelBackend"
     login(request, user)
     request.session[IMPERSONATION_REAL_USER_SESSION_KEY] = realusername
+    user_impersonated.send(sender=None, username=user.username)  
 
 
 def endimpersonation(request):    
