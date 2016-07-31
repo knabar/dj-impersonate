@@ -4,27 +4,26 @@ from models import Impersonation
 from django.db.models import Q
 from django.core.exceptions import PermissionDenied
 import django.dispatch
-
+import logging
+from rooibos.contrib.impersonate import signals
 
 IMPERSONATION_REAL_USER_SESSION_KEY = 'IMPERSONATION_REAL_USER'
 
 
 
-user_impersonated = django.dispatch.Signal(providing_args=["username"])
 
-
-def impersonate(request, username):    
-    realusername = request.session.get(IMPERSONATION_REAL_USER_SESSION_KEY) or request.user.username    
+def impersonate(request, username):
+    realusername = request.session.get(IMPERSONATION_REAL_USER_SESSION_KEY) or request.user.username
     if not can_impersonate(realusername, username):
-        raise PermissionDenied        
+        raise PermissionDenied
     user = User.objects.get(username=username)
     user.backend = "django.contrib.auth.backends.ModelBackend"
     login(request, user)
     request.session[IMPERSONATION_REAL_USER_SESSION_KEY] = realusername
-    user_impersonated.send(sender=None, username=user.username)  
+    signals.user_impersonated.send(sender=None, user=user)
+    logging.debug("Sent user impersonated signal (%s)" % signals.user_impersonated)
 
-
-def endimpersonation(request):    
+def endimpersonation(request):
     if request.session.has_key(IMPERSONATION_REAL_USER_SESSION_KEY):
         realusername = request.session.get(IMPERSONATION_REAL_USER_SESSION_KEY)
         del request.session[IMPERSONATION_REAL_USER_SESSION_KEY]
@@ -38,12 +37,23 @@ def get_real_user(request):
 
 
 def can_impersonate(realusername, username):
-    return Impersonation.objects.filter(
+    return User.objects.get(username=realusername).is_superuser or Impersonation.objects.filter(
         Q(users__username=username) | Q(groups__user__username=username),
         group__user__username=realusername).count() > 0
-   
-    
+
+
 def get_available_users(realusername):
-    return User.objects.filter(
-        Q(impersonated_set__group__user__username=realusername) | Q(groups__impersonated_set__group__user__username=realusername)
-        ).distinct().order_by('username').values_list('username', flat=True)
+    try:
+        user = User.objects.get(username=realusername)
+    except User.DoesNotExist:
+        return User.objects.none()
+    if user.is_superuser:
+        return User.objects.exclude(username=realusername).order_by('username')
+    else:
+        return User.objects.filter(
+            Q(impersonated_set__group__user__username=realusername) | Q(groups__impersonated_set__group__user__username=realusername)
+            ).distinct().order_by('username')
+
+
+def can_impersonate_others(realusername):
+    return get_available_users(realusername).exists()
