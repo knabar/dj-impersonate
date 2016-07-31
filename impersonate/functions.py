@@ -1,15 +1,14 @@
+from __future__ import absolute_import
 from django.contrib.auth import login
 from django.contrib.auth.models import User
-from models import Impersonation
 from django.db.models import Q
 from django.core.exceptions import PermissionDenied
-import django.dispatch
 import logging
-from rooibos.contrib.impersonate import signals
+from .signals import user_impersonated
+from .models import Impersonation
+
 
 IMPERSONATION_REAL_USER_SESSION_KEY = 'IMPERSONATION_REAL_USER'
-
-
 
 
 def impersonate(request, username):
@@ -20,8 +19,8 @@ def impersonate(request, username):
     user.backend = "django.contrib.auth.backends.ModelBackend"
     login(request, user)
     request.session[IMPERSONATION_REAL_USER_SESSION_KEY] = realusername
-    signals.user_impersonated.send(sender=None, user=user)
-    logging.debug("Sent user impersonated signal (%s)" % signals.user_impersonated)
+    user_impersonated.send(sender=None, user=user)
+    logging.debug("Sent user impersonated signal (%s)" % user_impersonated)
 
 def endimpersonation(request):
     if request.session.has_key(IMPERSONATION_REAL_USER_SESSION_KEY):

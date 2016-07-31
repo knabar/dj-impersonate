@@ -1,7 +1,6 @@
+from __future__ import absolute_import
 from django.conf.urls import patterns, url
-from django.conf import settings
-
-from views import start, stop, autocomplete_user
+from .views import start, stop, autocomplete_user
 
 urlpatterns = patterns('',
     url(r'^start/', start, name='impersonation-start'),

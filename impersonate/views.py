@@ -1,7 +1,9 @@
+from __future__ import absolute_import
 from django.http import HttpResponseRedirect, HttpResponse
 from django.views.decorators.cache import cache_control
-from functions import impersonate, endimpersonation, get_available_users, get_real_user
 from django.db.models import Q
+from .functions import impersonate, endimpersonation, get_available_users, get_real_user
+
 
 def start(request):
     next = request.GET.get('next', '/')
